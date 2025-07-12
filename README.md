@@ -3,7 +3,7 @@
 Welcome to a collection of beautifully designed, minimal, and **offline-capable** to-do and kanban task planners. All tools are single HTML files—no installation, no login, and no setup required. Just open and get productive!
 
 Set This to Your NewTab by Using this [Custom New Tab url Chrome Extension ](https://chromewebstore.google.com/detail/custom-new-tab-url/mmjbdbjnoablegbkcklggeknkfcjkjia?hl=en)
-Paste This Url ''https://dyal96.github.io/todo/'' and it will always open as new tab so you don't miss anything
+Paste This Url https://dyal96.github.io/todo/ and it will always open as new tab so you don't miss anything
 ---
 
 ## 🔗 Live Demo Links

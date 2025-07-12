@@ -1,0 +1,305 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Kanban Task Planner</title>
+<style>
+  :root {
+    --high: #e74c3c;
+    --medium: #f39c12;
+    --low: #2ecc71;
+  }
+  body {
+    background-color: #f9f9f9;
+    color: #444;
+    font-family: sans-serif;
+  }
+  header {
+    padding: 1rem;
+    background: #f4f4f4;
+    border-bottom: 1px solid #ccc;
+    text-align: center;
+  }
+  header h2 {
+    margin: 0;
+  }
+  #quote {
+    padding-top: 0.5rem;
+    font-style: italic;
+    font-size: 1rem;
+    color: #555;
+    opacity: 0;
+    animation: fadeIn 1s forwards;
+  }
+  @keyframes fadeIn {
+    to { opacity: 1; }
+  }
+  #controls {
+    margin: 1rem auto;
+    display: flex;
+    justify-content: center;
+    flex-wrap: wrap;
+    gap: 10px;
+    max-width: 600px;
+  }
+  #taskInput, #prioritySelect {
+    padding: 0.5rem;
+    font-size: 1rem;
+    box-sizing: border-box;
+  }
+  #taskInput {
+    flex: 1 0 60%;
+  }
+  #prioritySelect {
+    flex: 1 0 20%;
+  }
+  button, label[for="importFile"] {
+    cursor: pointer;
+    border: none;
+    border-radius: 4px;
+    padding: 0.5rem 0.75rem;
+    font-size: 0.9rem;
+    background-color: #3498db;
+    color: white;
+  }
+  label[for="importFile"] input {
+    display: none;
+  }
+  main {
+    display: flex;
+    justify-content: center;
+    gap: 1rem;
+    margin: 0 auto;
+    max-width: 1000px;
+    padding: 1rem;
+  }
+  section {
+    flex: 1;
+    border: 1px dashed #ccc;
+    padding: 0.5rem;
+    background-color: #fff;
+    border-radius: 8px;
+  }
+  .task {
+    cursor: move;
+    list-style: none;
+    margin: 5px 0;
+    padding: 8px 10px;
+    border-radius: 6px;
+    color: #fff;
+  }
+  .progress-bar {
+    height: 5px;
+    background: #ccc;
+    border-radius: 3px;
+    margin: 5px 0;
+    overflow: hidden;
+  }
+  .progress-bar-inner {
+    height: 100%;
+    background: #3498db;
+    width: 0;
+    transition: width 0.3s ease;
+  }
+  #congratsMessage {
+    text-align: center;
+    font-size: 1.1rem;
+    font-weight: bold;
+    color: #4caf50;
+    margin-top: 1rem;
+  }
+</style>
+</head>
+<body>
+  <header>
+    <h2>👋 Hi, Wonderer — <span id="todayDate"></span></h2>
+    <div id="quote"></div>
+  </header>
+
+  <div id="controls">
+    <input type="text" id="taskInput" placeholder="📝 Add a new task and press Enter...">
+    <select id="prioritySelect">
+      <option value="low">✅ Low</option>
+      <option value="medium">⚠️ Medium</option>
+      <option value="high">🔥 High</option>
+    </select>
+    <button onclick="clearAllTasks()">🧹 Clear All</button>
+    <button onclick="exportTasks()">📤 Export</button>
+    <label for="importFile">
+      📥 Import <input type="file" id="importFile" accept=".json">
+    </label>
+  </div>
+
+  <main>
+    <section id="todo" ondrop="drop(event, 'todo')" ondragover="event.preventDefault()">
+      <h3>🧠 To Do</h3>
+      <div class="progress-bar"><div id="todoProgress" class="progress-bar-inner"></div></div>
+    </section>
+    <section id="inprogress" ondrop="drop(event, 'inprogress')" ondragover="event.preventDefault()">
+      <h3>🚧 In Progress</h3>
+      <div class="progress-bar"><div id="inprogressProgress" class="progress-bar-inner"></div></div>
+    </section>
+    <section id="done" ondrop="drop(event, 'done')" ondragover="event.preventDefault()">
+      <h3>✅ Done</h3>
+      <div class="progress-bar"><div id="doneProgress" class="progress-bar-inner"></div></div>
+    </section>
+  </main>
+
+  <div id="congratsMessage"></div>
+
+<script>
+  function clearAllTasks() {
+    ["todo", "inprogress", "done"].forEach(id => {
+      const section = document.getElementById(id);
+      section.querySelectorAll(".task").forEach(task => task.remove());
+    });
+    localStorage.removeItem("kanbanTasks");
+    updateCongrats();
+    updateProgress();
+  }
+
+  function exportTasks() {
+    const data = localStorage.getItem("kanbanTasks");
+    if (!data) return alert("No tasks to export.");
+    const blob = new Blob([data], { type: "application/json" });
+    const a = document.createElement("a");
+    a.href = URL.createObjectURL(blob);
+    a.download = "kanban_tasks.json";
+    a.click();
+  }
+
+  document.getElementById("importFile")?.addEventListener("change", function () {
+    const file = this.files[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = () => {
+      try {
+        const data = JSON.parse(reader.result);
+        localStorage.setItem("kanbanTasks", JSON.stringify(data));
+        location.reload();
+      } catch {
+        alert("Invalid JSON file.");
+      }
+    };
+    reader.readAsText(file);
+  });
+
+  const quotes = [
+    "You're doing amazing! Keep going!",
+    "Every step counts. You've got this!",
+    "Productivity is power. 💪",
+    "Finish lines are closer than they appear!",
+    "Even 1% better today is worth it."
+  ];
+  document.getElementById("quote").innerText = quotes[Math.floor(Math.random() * quotes.length)];
+  document.getElementById("todayDate").innerText = new Date().toLocaleDateString(undefined, { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' });
+
+  document.getElementById("taskInput")?.addEventListener("keypress", function (e) {
+    if (e.key === "Enter") {
+      const priority = document.getElementById("prioritySelect").value;
+      addTask(this.value, priority);
+      this.value = "";
+    }
+  });
+
+  function addTask(text, priority = "low") {
+    if (!text.trim()) return;
+    const color = priority === "high" ? "var(--high)" : priority === "medium" ? "var(--medium)" : "var(--low)";
+    const li = document.createElement("li");
+    li.className = "task";
+    li.setAttribute("draggable", true);
+    li.style.backgroundColor = color;
+    li.innerText = text;
+    li.addEventListener("dragstart", () => window.draggedTask = li);
+    li.addEventListener("dblclick", () => {
+      const newText = prompt("Edit task:", li.innerText);
+      if (newText !== null) li.innerText = newText;
+      saveTasks();
+    });
+    document.getElementById("todo").appendChild(li);
+    saveTasks();
+    updateProgress();
+  }
+
+  function drop(e, column) {
+    e.preventDefault();
+    const dragged = window.draggedTask;
+    if (dragged) {
+      document.getElementById(column).appendChild(dragged);
+      saveTasks();
+      updateProgress();
+      updateCongrats();
+    }
+  }
+
+  function saveTasks() {
+    const board = ["todo", "inprogress", "done"].map(col => {
+      const tasks = Array.from(document.querySelectorAll(`#${col} .task`)).map(t => ({
+        text: t.innerText,
+        color: getComputedStyle(t).backgroundColor
+      }));
+      return { col, tasks };
+    });
+    localStorage.setItem("kanbanTasks", JSON.stringify(board));
+  }
+
+  function loadTasks() {
+    const data = localStorage.getItem("kanbanTasks");
+    if (!data) return;
+    try {
+      const board = JSON.parse(data);
+      board.forEach(({ col, tasks }) => {
+        const section = document.getElementById(col);
+        tasks.forEach(({ text, color }) => {
+          const li = document.createElement("li");
+          li.className = "task";
+          li.innerText = text;
+          li.style.backgroundColor = color;
+          li.setAttribute("draggable", true);
+          li.addEventListener("dragstart", () => window.draggedTask = li);
+          li.addEventListener("dblclick", () => {
+            const newText = prompt("Edit task:", li.innerText);
+            if (newText !== null) li.innerText = newText;
+            saveTasks();
+          });
+          section.appendChild(li);
+        });
+      });
+      updateProgress();
+    } catch (e) {
+      console.error("Load failed:", e);
+    }
+  }
+
+  function updateProgress() {
+    ["todo", "inprogress", "done"].forEach(col => {
+      const tasks = document.querySelectorAll(`#${col} .task`).length;
+      const total = document.querySelectorAll(".task").length;
+      const percent = total ? Math.round((tasks / total) * 100) : 0;
+      const bar = document.getElementById(col + "Progress");
+      if (bar) bar.style.width = percent + "%";
+    });
+  }
+
+  function updateCongrats() {
+    const all = document.querySelectorAll(".task").length;
+    const done = document.querySelectorAll("#done .task").length;
+    const box = document.getElementById("congratsMessage");
+    if (all && all === done) {
+      const msg = [
+        "🎉 Well done! You did great!",
+        "👏 That's impressive!",
+        "🚀 All tasks completed! Amazing!",
+        "💯 You're crushing it!"
+      ];
+      if (box) box.innerText = msg[Math.floor(Math.random() * msg.length)];
+    } else if (box) {
+      box.innerText = "";
+    }
+  }
+
+  window.addEventListener("load", () => loadTasks());
+</script>
+</body>
+</html>

@@ -1,0 +1,637 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Kanban Task Planner</title>
+<style>
+  :root {
+    --high: #e5534b;
+    --medium: #f6a94f;
+    --low: #56c05d;
+    --progress-height: 12px;
+    --font-base: 15px;
+    --font-header: 28px;
+  }
+  body.light {
+    --bg: #f9fafb;
+    --text: #222;
+    --card: #fff;
+    --btn-bg: #fff;
+    --btn-border: #ccc;
+    --btn-hover-bg: #e7e7e7;
+    --progress-bg: #e9e9e9;
+    --progress-bar: #4caf50;
+    --drop-zone-border: #999;
+  }
+  body.pastel {
+    --bg: linear-gradient(to center, #ffedf0, #e0f5f9);
+    --text: #333;
+    --card: rgba(255, 255, 255, 0.85);
+    --btn-bg: rgba(255, 255, 255, 0.9);
+    --btn-border: #bbb;
+    --btn-hover-bg: #def0f6;
+    --progress-bg: #c9e6f3;
+    --progress-bar: #53a86a;
+    --drop-zone-border: #8ab6c8;
+  }
+  body.dark {
+    --bg: #121212;
+    --text: #eee;
+    --card: #1e1e1e;
+    --btn-bg: #2c2c2c;
+    --btn-border: #444;
+    --btn-hover-bg: #3a3a3a;
+    --progress-bg: #333;
+    --progress-bar: #6fcf97;
+    --drop-zone-border: #555;
+  }
+  body {
+    font-family: "Segoe UI", Tahoma, Geneva, Verdana, sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    margin: 0; padding: 14px 18px 20px;
+    transition: background 0.4s ease, color 0.4s ease;
+    display: flex; flex-direction: column; min-height: 100vh;
+    user-select: none;
+  }
+  header {
+    text-align: center;
+    margin-bottom: 8px;
+    user-select: text;
+  }
+  header h1 {
+    font-weight: 700;
+    font-size: var(--font-header);
+    letter-spacing: 1.3px;
+    margin: 0;
+  }
+  header h2 {
+    font-weight: 500;
+    font-size: 14px;
+    margin: 4px 0 14px;
+    opacity: 0.7;
+  }
+  #taskInput {
+    padding: 9px 12px;
+    width: 100%;
+    max-width: 640px;
+    font-size: var(--font-base);
+    border-radius: 7px;
+    border: 1.5px solid var(--btn-border);
+    background-color: var(--btn-bg);
+    color: var(--text);
+    margin: 0 auto 14px;
+    display: block;
+    box-sizing: border-box;
+    transition: border-color 0.3s ease;
+  }
+  #taskInput:focus {
+    border-color: var(--high);
+    outline: none;
+    box-shadow: 0 0 8px var(--high);
+  }
+  .toolbar {
+    display: flex;
+    justify-content: center;
+    flex-wrap: wrap;
+    gap: 8px;
+    margin-bottom: 18px;
+    align-items: center;
+  }
+  .toolbar button, .toolbar select {
+    background: var(--btn-bg);
+    color: var(--text);
+    border: 1.5px solid var(--btn-border);
+    border-radius: 6px;
+    padding: 8px 14px;
+    cursor: pointer;
+    transition: background-color 0.3s ease;
+    font-weight: 500;
+    font-family: inherit;
+    box-shadow: 0 1px 2px rgba(0,0,0,0.05);
+  }
+  .toolbar button:hover, .toolbar select:hover {
+    background: var(--btn-hover-bg);
+  }
+  .stopwatch-container {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    background: var(--card);
+    padding: 5px 12px;
+    border-radius: 6px;
+    margin-center: auto;
+  }
+  #stopwatchDisplay {
+    font-weight: 600;
+    font-size: 16px;
+    letter-spacing: 1px;
+  }
+  .stopwatch-buttons button {
+    padding: 4px 8px;
+    font-weight: 700;
+    font-size: 12px;
+  }
+  .stopwatch-buttons button:disabled {
+    cursor: not-allowed; opacity: 0.6;
+  }
+  .board {
+    display: flex;
+    gap: 18px;
+    width: 100%;
+    max-width: 1240px;
+    margin: 0 auto 10px;
+    flex-grow: 1;
+  }
+  .column {
+    background: var(--card);
+    border-radius: 12px;
+    width: 33.333%;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.08);
+    display: flex;
+    flex-direction: column;
+    max-height: 70vh;
+    border: 2px dashed transparent;
+    transition: box-shadow 0.3s ease, border-color 0.3s ease;
+  }
+  .column.drag-over {
+    border-color: var(--drop-zone-border);
+  }
+  .column-header {
+    padding: 12px 14px 8px;
+    border-bottom: 1.5px solid var(--btn-border);
+  }
+  .column-header h2 {
+    margin: 0;
+    font-weight: 600;
+    font-size: 20px;
+    text-align: center;
+    letter-spacing: 1.1px;
+  }
+  .task-list {
+    list-style: none;
+    margin: 0;
+    padding: 6px 14px 14px;
+    flex-grow: 1;
+    overflow-y: auto;
+  }
+  .task {
+    padding: 10px 14px;
+    border-radius: 8px;
+    margin: 10px 0;
+    cursor: grab;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 10px;
+    box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+    word-break: break-word;
+    background: var(--btn-bg);
+    transition: background-color 0.3s ease, box-shadow 0.2s ease;
+  }
+  .task:active {
+    cursor: grabbing;
+    box-shadow: 0 6px 15px rgba(0,0,0,0.2);
+  }
+  .task .label {
+    flex-grow: 1;
+    font-weight: 500;
+    line-height: 1.3;
+  }
+  .task.high { border-left: 5px solid var(--high); }
+  .task.medium { border-left: 5px solid var(--medium); }
+  .task.low { border-left: 5px solid var(--low); }
+  .delete-btn {
+    background: transparent; border: none;
+    color: #a93232; font-weight: 700; font-size: 20px;
+    cursor: pointer; padding: 0; line-height: 1;
+    width: 24px; height: 24px; display: flex;
+    justify-content: center; align-items: center;
+    border-radius: 5px; transition: background-color 0.3s ease;
+  }
+  .delete-btn:hover { background-color: #ffdfdf; color: #8f1b1b; }
+  .column-footer {
+    padding: 10px 14px;
+    border-top: 1.5px solid var(--btn-border);
+    margin-top: auto;
+  }
+  .progress-container {
+    width: 100%;
+  }
+  .progress-text {
+    text-align: center;
+    font-size: 13px;
+    font-weight: 500;
+    margin-bottom: 6px;
+    opacity: 0.8;
+  }
+  .progress-bar-wrapper {
+    height: var(--progress-height);
+    background: var(--progress-bg);
+    border-radius: 8px;
+    overflow: hidden;
+  }
+  .progress-bar {
+    height: 100%;
+    width: 0%;
+    background: var(--progress-bar);
+    transition: width 0.4s ease;
+    border-radius: 8px;
+  }
+  .congrats {
+    text-align: center;
+    font-size: 18px;
+    font-weight: 600;
+    color: var(--high);
+    min-height: 28px;
+    margin-top: 15px;
+  }
+  @media (max-width: 960px) {
+    .toolbar { flex-direction: column; align-items: stretch; }
+    .stopwatch-container { margin-left: 0; justify-content: space-between; }
+    .board { flex-direction: column; }
+    .column { width: 100%; max-height: none; }
+  }
+</style>
+</head>
+<body>
+  <header>
+    <h1 id="greeting">Hi, Wonderer</h1>
+    <h2 id="dateDisplay">Saturday, 12th July 2025</h2>
+  </header>
+
+  <input type="text" id="taskInput" placeholder="Enter a new task..." autocomplete="off" />
+
+  <div class="toolbar">
+    <select id="prioritySelect" title="Select Priority">
+      <option value="high">🔥 High</option>
+      <option value="medium" selected>⚠️ Medium</option>
+      <option value="low">✅ Low</option>
+    </select>
+    <button id="clearAllBtn" title="Clear All Tasks">🧹 Clear All</button>
+    <button id="exportBtn" title="Export Tasks">⬇ Export</button>
+    <input type="file" id="importFile" style="display:none" accept=".json" />
+    <button id="importBtn" title="Import Tasks">⬆ Import</button>
+    <button id="toggleThemeBtn" title="Toggle Theme">🎨 Theme</button>
+    <div class="stopwatch-container">
+      <div id="stopwatchDisplay">00:00:00</div>
+      <div class="stopwatch-buttons">
+        <button id="startBtn" title="Start Stopwatch">▶️</button>
+        <button id="pauseBtn" title="Pause Stopwatch" disabled>⏸️</button>
+        <button id="resetBtn" title="Reset Stopwatch">⏹️</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="board" aria-label="Kanban Board">
+    <section class="column" id="todo-col">
+      <div class="column-header"><h2>To Do</h2></div>
+      <ul class="task-list"></ul>
+      <div class="column-footer">
+        <div class="progress-container">
+            <div class="progress-text"></div>
+            <div class="progress-bar-wrapper"><div class="progress-bar"></div></div>
+        </div>
+      </div>
+    </section>
+
+    <section class="column" id="inprogress-col">
+      <div class="column-header"><h2>In Progress</h2></div>
+      <ul class="task-list"></ul>
+       <div class="column-footer">
+        <div class="progress-container">
+            <div class="progress-text"></div>
+            <div class="progress-bar-wrapper"><div class="progress-bar"></div></div>
+        </div>
+      </div>
+    </section>
+
+    <section class="column" id="done-col">
+      <div class="column-header"><h2>Done</h2></div>
+      <ul class="task-list"></ul>
+       <div class="column-footer">
+        <div class="progress-container">
+            <div class="progress-text"></div>
+            <div class="progress-bar-wrapper"><div class="progress-bar"></div></div>
+        </div>
+      </div>
+    </section>
+  </div>
+
+  <div class="congrats" aria-live="polite"></div>
+
+<script>
+document.addEventListener('DOMContentLoaded', () => {
+
+  // --- CONFIG & CONSTANTS ---
+  const themes = ["light", "pastel", "dark"];
+  const priorityMap = {
+    high: { class: "high", icon: "🔥" },
+    medium: { class: "medium", icon: "⚠️" },
+    low: { class: "low", icon: "✅" },
+  };
+
+  // --- STATE MANAGEMENT ---
+  const state = {
+    tasks: JSON.parse(localStorage.getItem("kanbanTasks")) || [],
+    themeIndex: Number(localStorage.getItem("kanbanThemeIndex") || 0),
+    stopwatch: {
+      seconds: 0,
+      interval: null,
+      running: false,
+    }
+  };
+
+  // --- UI SELECTORS ---
+  const selectors = {
+    greeting: document.getElementById("greeting"),
+    dateDisplay: document.getElementById("dateDisplay"),
+    taskInput: document.getElementById("taskInput"),
+    prioritySelect: document.getElementById("prioritySelect"),
+    congratsMessage: document.querySelector(".congrats"),
+    columns: {
+      todo: document.getElementById("todo-col"),
+      inprogress: document.getElementById("inprogress-col"),
+      done: document.getElementById("done-col"),
+    },
+    buttons: {
+      clearAll: document.getElementById("clearAllBtn"),
+      export: document.getElementById("exportBtn"),
+      import: document.getElementById("importBtn"),
+      importFile: document.getElementById("importFile"),
+      toggleTheme: document.getElementById("toggleThemeBtn"),
+      stopwatch: {
+        start: document.getElementById("startBtn"),
+        pause: document.getElementById("pauseBtn"),
+        reset: document.getElementById("resetBtn"),
+        display: document.getElementById("stopwatchDisplay"),
+      }
+    }
+  };
+
+  // --- THEMING ---
+  const applyTheme = () => {
+    document.body.className = themes[state.themeIndex];
+  };
+
+  const toggleTheme = () => {
+    state.themeIndex = (state.themeIndex + 1) % themes.length;
+    localStorage.setItem("kanbanThemeIndex", state.themeIndex);
+    applyTheme();
+  };
+
+  // --- UI RENDERING & UPDATES ---
+  const renderTasks = () => {
+    document.querySelectorAll('.task-list').forEach(list => list.innerHTML = '');
+    state.tasks.forEach(task => {
+      const columnEl = selectors.columns[task.column];
+      if (columnEl) {
+        columnEl.querySelector('.task-list').appendChild(createTaskElement(task));
+      }
+    });
+    updateProgress();
+    updateCongrats();
+  };
+
+  const createTaskElement = (task) => {
+    const li = document.createElement("li");
+    li.className = `task ${priorityMap[task.priority]?.class || "medium"}`;
+    li.draggable = true;
+    li.dataset.id = task.id;
+
+    const priorityInfo = priorityMap[task.priority];
+    li.innerHTML = `
+      <span class="label" title="Click to edit">${priorityInfo.icon} ${escapeHTML(task.text)}</span>
+      <button class="delete-btn" title="Delete task">&times;</button>
+    `;
+    li.addEventListener("dragstart", e => {
+      e.dataTransfer.setData("text/plain", task.id);
+      e.dataTransfer.effectAllowed = "move";
+    });
+    li.querySelector(".delete-btn").addEventListener("click", () => deleteTask(task.id));
+    li.querySelector(".label").addEventListener("click", e => enableEditing(e.currentTarget, task.id));
+    return li;
+  };
+  
+  const updateProgress = () => {
+    const totalTasks = state.tasks.length;
+    Object.keys(selectors.columns).forEach(colName => {
+        const columnEl = selectors.columns[colName];
+        const tasksInColumn = state.tasks.filter(t => t.column === colName);
+        const count = tasksInColumn.length;
+        const percentage = totalTasks > 0 ? Math.round((count / totalTasks) * 100) : 0;
+        
+        columnEl.querySelector('.progress-text').textContent = `${count} ${count === 1 ? 'task' : 'tasks'} (${percentage}%)`;
+        columnEl.querySelector('.progress-bar').style.width = `${percentage}%`;
+    });
+  };
+
+  const updateCongrats = () => {
+    const allDone = state.tasks.length > 0 && state.tasks.every(t => t.column === "done");
+    selectors.congratsMessage.textContent = allDone ? "🎉 All tasks completed! Great work!" : "";
+  };
+
+  const setGreetingAndDate = () => {
+    const greetings = ["Hi there!", "Hello, Champion!", "Let's get it done!", "Welcome back!"];
+    selectors.greeting.textContent = greetings[Math.floor(Math.random() * greetings.length)];
+    const now = new Date();
+    selectors.dateDisplay.textContent = now.toLocaleDateString(undefined, {
+      weekday: 'long', year: 'numeric', month: 'long', day: 'numeric'
+    });
+  };
+
+  // --- DATA MANIPULATION ---
+  const saveState = () => localStorage.setItem("kanbanTasks", JSON.stringify(state.tasks));
+
+  const addTask = () => {
+    const text = selectors.taskInput.value.trim();
+    if (!text) return;
+    state.tasks.push({
+      id: `task_${Date.now()}`,
+      text,
+      priority: selectors.prioritySelect.value,
+      column: "todo"
+    });
+    saveState();
+    renderTasks();
+    selectors.taskInput.value = "";
+    selectors.taskInput.focus();
+  };
+
+  const deleteTask = (id) => {
+    state.tasks = state.tasks.filter(t => t.id !== id);
+    saveState();
+    renderTasks();
+  };
+
+  const enableEditing = (labelElement, taskId) => {
+    const task = state.tasks.find(t => t.id === taskId);
+    if (!task) return;
+    const input = document.createElement('input');
+    input.type = 'text';
+    input.value = task.text;
+    input.style.width = '100%';
+    labelElement.replaceWith(input);
+    input.focus();
+    const save = () => {
+      task.text = input.value.trim() || task.text;
+      saveState();
+      renderTasks();
+    };
+    input.addEventListener('blur', save);
+    input.addEventListener('keydown', e => e.key === 'Enter' && input.blur());
+  };
+
+  const clearAllTasks = () => {
+    if (confirm("Are you sure you want to clear all tasks?")) {
+      state.tasks = [];
+      saveState();
+      renderTasks();
+    }
+  };
+
+  const exportTasks = () => {
+    const dataStr = JSON.stringify(state.tasks, null, 2);
+    const blob = new Blob([dataStr], { type: "application/json" });
+    const a = document.createElement("a");
+    a.href = URL.createObjectURL(blob);
+    a.download = `kanban-tasks-${Date.now()}.json`;
+    a.click();
+    URL.revokeObjectURL(a.href);
+  };
+
+  const importTasks = (event) => {
+    const file = event.target.files[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = e => {
+      try {
+        const importedTasks = JSON.parse(e.target.result);
+        if (Array.isArray(importedTasks)) {
+          state.tasks = importedTasks;
+          saveState();
+          renderTasks();
+        } else throw new Error();
+      } catch {
+        alert("Invalid or corrupt file.");
+      }
+    };
+    reader.readAsText(file);
+    selectors.buttons.importFile.value = "";
+  };
+
+  const escapeHTML = text => {
+    const div = document.createElement("div");
+    div.textContent = text;
+    return div.innerHTML;
+  };
+
+  // --- STOPWATCH LOGIC ---
+  const updateStopwatchDisplay = () => {
+    const s = state.stopwatch;
+    const hrs = Math.floor(s.seconds / 3600).toString().padStart(2, "0");
+    const mins = Math.floor((s.seconds % 3600) / 60).toString().padStart(2, "0");
+    const secs = Math.floor(s.seconds % 60).toString().padStart(2, "0");
+    selectors.buttons.stopwatch.display.textContent = `${hrs}:${mins}:${secs}`;
+  };
+
+  const saveStopwatchState = () => {
+    localStorage.setItem("kanbanStopwatch", JSON.stringify({
+      seconds: state.stopwatch.seconds,
+      running: state.stopwatch.running,
+      timestamp: Date.now()
+    }));
+  };
+
+  const startStopwatch = () => {
+    const s = state.stopwatch;
+    if (s.running) return;
+    s.running = true;
+    selectors.buttons.stopwatch.start.disabled = true;
+    selectors.buttons.stopwatch.pause.disabled = false;
+    s.interval = setInterval(() => {
+      s.seconds++;
+      updateStopwatchDisplay();
+    }, 1000);
+    saveStopwatchState();
+  };
+
+  const pauseStopwatch = () => {
+    const s = state.stopwatch;
+    if (!s.running) return;
+    clearInterval(s.interval);
+    s.running = false;
+    selectors.buttons.stopwatch.start.disabled = false;
+    selectors.buttons.stopwatch.pause.disabled = true;
+    saveStopwatchState();
+  };
+
+  const resetStopwatch = () => {
+    pauseStopwatch();
+    state.stopwatch.seconds = 0;
+    updateStopwatchDisplay();
+    saveStopwatchState();
+  };
+
+  const loadStopwatchState = () => {
+    const saved = JSON.parse(localStorage.getItem("kanbanStopwatch") || "null");
+    if (!saved) { updateStopwatchDisplay(); return; }
+    state.stopwatch.seconds = saved.seconds || 0;
+    if (saved.running && saved.timestamp) {
+      const timePassed = (Date.now() - saved.timestamp) / 1000;
+      state.stopwatch.seconds += timePassed;
+      startStopwatch();
+    } else {
+      updateStopwatchDisplay();
+    }
+  };
+
+  // --- EVENT HANDLERS ---
+  const setupEventListeners = () => {
+    selectors.taskInput.addEventListener("keypress", e => e.key === "Enter" && addTask());
+    selectors.buttons.clearAll.addEventListener("click", clearAllTasks);
+    selectors.buttons.export.addEventListener("click", exportTasks);
+    selectors.buttons.import.addEventListener("click", () => selectors.buttons.importFile.click());
+    selectors.buttons.importFile.addEventListener("change", importTasks);
+    selectors.buttons.toggleTheme.addEventListener("click", toggleTheme);
+    selectors.buttons.stopwatch.start.addEventListener("click", startStopwatch);
+    selectors.buttons.stopwatch.pause.addEventListener("click", pauseStopwatch);
+    selectors.buttons.stopwatch.reset.addEventListener("click", resetStopwatch);
+
+    Object.entries(selectors.columns).forEach(([name, el]) => {
+      el.addEventListener("dragover", e => {
+        e.preventDefault();
+        e.dataTransfer.dropEffect = "move";
+        el.classList.add('drag-over');
+      });
+      el.addEventListener('dragleave', () => el.classList.remove('drag-over'));
+      el.addEventListener('drop', e => {
+        e.preventDefault();
+        el.classList.remove('drag-over');
+        const taskId = e.dataTransfer.getData("text/plain");
+        const task = state.tasks.find(t => t.id === taskId);
+        const colName = name.replace('-col', '');
+        if (task && task.column !== colName) {
+          task.column = colName;
+          saveState();
+          renderTasks();
+        }
+      });
+    });
+  };
+
+  // --- INITIALIZATION ---
+  const init = () => {
+    setGreetingAndDate();
+    applyTheme();
+    renderTasks();
+    loadStopwatchState();
+    setupEventListeners();
+  };
+
+  init();
+});
+</script>
+</body>
+</html>

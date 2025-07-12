@@ -1,0 +1,825 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Kanban Task Planner</title>
+<style>
+  :root {
+    --high: #e5534b;
+    --medium: #f6a94f;
+    --low: #56c05d;
+    --progress-height: 14px;
+    --font-base: 15px;
+    --font-header: 28px;
+  }
+  body.light {
+    --bg: #f9fafb;
+    --text: #222;
+    --card: #fff;
+    --btn-bg: #fff;
+    --btn-border: #ccc;
+    --btn-hover-bg: #e7e7e7;
+    --progress-bg: #ddd;
+    --progress-bar: #4caf50;
+  }
+  body.pastel {
+    --bg: linear-gradient(to right, #ffedf0, #e0f5f9);
+    --text: #333;
+    --card: rgba(255, 255, 255, 0.8);
+    --btn-bg: rgba(255, 255, 255, 0.9);
+    --btn-border: #bbb;
+    --btn-hover-bg: #def0f6;
+    --progress-bg: #c9e6f3;
+    --progress-bar: #53a86a;
+  }
+  body.dark {
+    --bg: #121212;
+    --text: #eee;
+    --card: #1f1f1f;
+    --btn-bg: #2a2a2a;
+    --btn-border: #444;
+    --btn-hover-bg: #3a3a3a;
+    --progress-bg: #333;
+    --progress-bar: #6fcf97;
+  }
+  body {
+    font-family: "Segoe UI", Tahoma, Geneva, Verdana, sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    margin: 0; padding: 14px 18px 20px;
+    transition: background 0.4s ease, color 0.4s ease;
+    display: flex; flex-direction: column; min-height: 100vh;
+    user-select: none;
+  }
+  header {
+    text-align: center;
+    margin-bottom: 8px;
+    user-select: text;
+  }
+  header h1 {
+    font-weight: 900;
+    font-size: var(--font-header);
+    margin: 0;
+    letter-spacing: 1.3px;
+    text-shadow: 0 1px 2px rgba(0,0,0,0.05);
+  }
+  header h2 {
+    font-weight: 600;
+    font-size: 14px;
+    margin: 4px 0 14px;
+    opacity: 0.7;
+  }
+  #taskInput {
+    padding: 8px 12px;
+    width: 100%;
+    max-width: 640px;
+    font-size: var(--font-base);
+    border-radius: 7px;
+    border: 1.5px solid var(--btn-border);
+    margin: 0 auto 14px;
+    display: block;
+    box-sizing: border-box;
+    user-select: text;
+    font-weight: 600;
+    transition: border-color 0.3s ease;
+  }
+  #taskInput:focus {
+    border-color: var(--high);
+    outline: none;
+    box-shadow: 0 0 8px var(--high);
+  }
+  .toolbar {
+    display: flex;
+    justify-content: center;
+    flex-wrap: wrap;
+    gap: 8px;
+    margin-bottom: 14px;
+    font-size: var(--font-base);
+    user-select: none;
+  }
+  .toolbar button, .toolbar select {
+    background: var(--btn-bg);
+    border: 1.5px solid var(--btn-border);
+    border-radius: 6px;
+    padding: 7px 14px;
+    cursor: pointer;
+    transition: background-color 0.3s ease;
+    font-weight: 700;
+    min-width: 52px;
+    user-select: none;
+    box-shadow: 0 1px 2px rgba(0,0,0,0.05);
+  }
+  .toolbar button:hover, .toolbar select:hover {
+    background: var(--btn-hover-bg);
+  }
+  .toolbar select {
+    min-width: 110px;
+    font-weight: 600;
+  }
+  .top-flex {
+    max-width: 960px;
+    margin: 0 auto 18px;
+    user-select: none;
+  }
+  /* Pomodoro container */
+  .pomodoro-container {
+    max-width: 640px;
+    background: var(--card);
+    border-radius: 10px;
+    padding: 16px 20px;
+    box-shadow: 0 3px 10px rgba(0,0,0,0.1);
+    font-size: var(--font-base);
+    font-weight: 700;
+    color: var(--text);
+    user-select: none;
+    letter-spacing: 1.3px;
+    margin: 0 auto 16px;
+    text-align: center;
+  }
+  #pomodoroDisplay {
+    font-weight: 900;
+    font-size: 36px;
+    user-select: none;
+    letter-spacing: 2.8px;
+    text-shadow: 0 1px 3px rgba(0,0,0,0.1);
+    margin-bottom: 12px;
+  }
+  .pomodoro-buttons {
+    display: flex;
+    gap: 14px;
+    justify-content: center;
+  }
+  .pomodoro-buttons button {
+    flex: 1;
+    border-radius: 7px;
+    padding: 10px 0;
+    font-weight: 800;
+    font-size: 16px;
+    border: none;
+    background: var(--high);
+    color: white;
+    box-shadow: 0 4px 8px rgb(229 83 75 / 0.6);
+    transition: background 0.3s ease;
+    cursor: pointer;
+    user-select: none;
+  }
+  .pomodoro-buttons button:disabled {
+    background: #ccc;
+    box-shadow: none;
+    cursor: not-allowed;
+  }
+  .pomodoro-buttons button:hover:not(:disabled) {
+    background: #d9403a;
+    box-shadow: 0 6px 12px rgb(217 64 58 / 0.8);
+  }
+  /* Kanban board */
+  .board {
+    display: flex;
+    gap: 18px;
+    width: 100%;
+    max-width: 1240px;
+    margin: 0 auto 10px;
+    flex-grow: 1;
+    min-height: 50vh;
+    user-select: none;
+  }
+  .column {
+    background: var(--card);
+    border-radius: 12px;
+    padding: 12px 14px 6px;
+    width: 33.333%;
+    box-shadow: 0 3px 8px rgba(0,0,0,0.1);
+    display: flex;
+    flex-direction: column;
+    max-height: 70vh;
+    overflow-y: auto;
+    user-select: none;
+    transition: box-shadow 0.3s ease;
+  }
+  .column:hover {
+    box-shadow: 0 5px 18px rgba(0,0,0,0.15);
+  }
+  .column h2 {
+    margin-top: 0;
+    margin-bottom: 14px;
+    font-weight: 900;
+    font-size: 20px;
+    text-align: center;
+    color: var(--text);
+    letter-spacing: 1.1px;
+    user-select: text;
+  }
+  ul {
+    list-style: none;
+    margin: 0; padding: 0;
+    flex-grow: 1;
+  }
+  .task {
+    padding: 10px 14px;
+    border-radius: 10px;
+    margin: 10px 0;
+    cursor: grab;
+    font-size: var(--font-base);
+    position: relative;
+    user-select: text;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 10px;
+    box-shadow: 0 3px 7px rgb(0 0 0 / 0.12);
+    word-break: break-word;
+    background: #fafafa;
+    transition: background-color 0.3s ease, box-shadow 0.2s ease;
+  }
+  .task:active {
+    cursor: grabbing;
+    box-shadow: 0 7px 18px rgb(0 0 0 / 0.25);
+  }
+  .task .label {
+    flex-grow: 1;
+    font-weight: 700;
+    color: var(--text);
+    line-height: 1.25;
+    letter-spacing: 0.02em;
+  }
+  /* Priority colors */
+  .task.high {
+    border-left: 6px solid var(--high);
+    background: #ffe8e6;
+    color: #731818;
+    font-weight: 800;
+  }
+  .task.medium {
+    border-left: 6px solid var(--medium);
+    background: #fff6e6;
+    color: #7a5c15;
+    font-weight: 700;
+  }
+  .task.low {
+    border-left: 6px solid var(--low);
+    background: #e7f8e7;
+    color: #1f5d21;
+    font-weight: 600;
+  }
+  /* Delete button */
+  .delete-btn {
+    background: transparent;
+    border: none;
+    color: #b02929;
+    font-weight: 900;
+    font-size: 20px;
+    cursor: pointer;
+    user-select: none;
+    padding: 0;
+    line-height: 1;
+    flex-shrink: 0;
+    width: 24px;
+    height: 24px;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    border-radius: 5px;
+    transition: background-color 0.3s ease;
+  }
+  .delete-btn:hover {
+    background-color: #ffdfdf;
+    color: #7a1a1a;
+  }
+  /* Priority selector */
+  .priority-select {
+    font-size: 14px;
+    border-radius: 5px;
+    padding: 4px 7px;
+    border: 1px solid #bbb;
+    cursor: pointer;
+    flex-shrink: 0;
+    user-select: none;
+    font-weight: 700;
+    color: var(--text);
+    background: #fff;
+    box-shadow: 0 1px 3px rgb(0 0 0 / 0.05);
+    transition: border-color 0.3s ease;
+  }
+  .priority-select:hover, .priority-select:focus {
+    border-color: var(--high);
+    outline: none;
+    box-shadow: 0 0 7px var(--high);
+  }
+  /* Progress bars container */
+  .progress-bars {
+    max-width: 1240px;
+    margin: 0 auto 12px;
+    display: flex;
+    gap: 18px;
+    justify-content: center;
+    user-select: none;
+  }
+  .progress-bar-wrapper {
+    flex: 1;
+    background: var(--progress-bg);
+    border-radius: 8px;
+    overflow: hidden;
+    box-shadow: inset 0 2px 4px rgb(0 0 0 / 0.1);
+    min-width: 0;
+    user-select: none;
+  }
+  .progress-bar-wrapper span {
+    display: block;
+    text-align: center;
+    font-weight: 700;
+    font-size: 13px;
+    color: var(--text);
+    margin-bottom: 4px;
+    user-select: text;
+  }
+  .progress-bar {
+    height: var(--progress-height);
+    width: 0%;
+    background: var(--progress-bar);
+    transition: width 0.4s ease;
+    border-radius: 8px 0 0 8px;
+  }
+  /* Congratulatory message */
+  .congrats {
+    max-width: 1240px;
+    margin: 10px auto 0;
+    text-align: center;
+    font-size: 18px;
+    font-weight: 800;
+    color: var(--high);
+    user-select: none;
+    min-height: 28px;
+    letter-spacing: 0.04em;
+    text-shadow: 0 1px 4px rgba(0,0,0,0.1);
+  }
+  /* Responsive */
+  @media (max-width: 960px) {
+    .board {
+      flex-direction: column;
+      max-width: 100%;
+      min-height: auto;
+    }
+    .column {
+      width: 100%;
+      max-height: none;
+    }
+    .progress-bars {
+      flex-direction: column;
+      gap: 8px;
+      max-width: 100%;
+    }
+    .progress-bar-wrapper {
+      width: 100%;
+      min-width: auto;
+    }
+    .pomodoro-container {
+      max-width: 100%;
+    }
+  }
+</style>
+</head>
+<body>
+  <header>
+    <h1 id="greeting">Hi, Wonderer</h1>
+    <h2 id="dateDisplay">Monday, 12th July 2025</h2>
+  </header>
+
+  <input type="text" id="taskInput" placeholder="Enter a task and press Enter" autocomplete="off" />
+
+  <div class="toolbar">
+    <select id="prioritySelect" title="Select Priority">
+      <option value="high">🔥 High</option>
+      <option value="medium" selected>⚠️ Medium</option>
+      <option value="low">✅ Low</option>
+    </select>
+    <button onclick="clearAll()" title="Clear All Tasks">🧹 Clear All</button>
+    <button onclick="exportTasks()" title="Export Tasks">⬇ Export</button>
+    <input type="file" id="importFile" style="display:none" accept=".json" onchange="importTasks()" />
+    <button onclick="document.getElementById('importFile').click()" title="Import Tasks">⬆ Import</button>
+    <button onclick="toggleTheme()" title="Toggle Theme">🎨 Theme</button>
+  </div>
+
+  <div class="pomodoro-container" aria-label="Pomodoro Timer">
+    <div id="pomodoroDisplay">25:00</div>
+    <div class="pomodoro-buttons">
+      <button id="startBtn" onclick="startPomodoro()">Start</button>
+      <button id="pauseBtn" onclick="pausePomodoro()" disabled>Pause</button>
+      <button id="resetBtn" onclick="resetPomodoro()">Reset</button>
+    </div>
+  </div>
+
+  <div class="board" aria-label="Kanban Board">
+    <section class="column" aria-label="To Do Tasks">
+      <h2>To Do</h2>
+      <ul id="todo" ondragover="allowDrop(event)" ondrop="drop(event, 'todo')"></ul>
+    </section>
+    <section class="column" aria-label="In Progress Tasks">
+      <h2>In Progress</h2>
+      <ul id="inprogress" ondragover="allowDrop(event)" ondrop="drop(event, 'inprogress')"></ul>
+    </section>
+    <section class="column" aria-label="Done Tasks">
+      <h2>Done</h2>
+      <ul id="done" ondragover="allowDrop(event)" ondrop="drop(event, 'done')"></ul>
+    </section>
+  </div>
+
+  <div class="progress-bars" aria-label="Task Progress Bars">
+    <div class="progress-bar-wrapper">
+      <span>To Do</span>
+      <div class="progress-bar" id="progressTodo"></div>
+    </div>
+    <div class="progress-bar-wrapper">
+      <span>In Progress</span>
+      <div class="progress-bar" id="progressInprogress"></div>
+    </div>
+    <div class="progress-bar-wrapper">
+      <span>Done</span>
+      <div class="progress-bar" id="progressDone"></div>
+    </div>
+  </div>
+
+  <div class="congrats" id="congratsMessage" aria-live="polite"></div>
+
+<script>
+  // Random greetings list
+  const greetings = [
+    "Hi, Wonderer",
+    "Hello, Champion",
+    "Greetings, Hero",
+    "Hey, Superstar",
+    "Welcome, Trailblazer",
+    "Good day, Innovator",
+    "Salutations, Visionary",
+    "Yo, Dynamo"
+  ];
+
+  // Priority to color and icon mapping
+  const priorityMap = {
+    high: {class: "high", icon: "🔥"},
+    medium: {class: "medium", icon: "⚠️"},
+    low: {class: "low", icon: "✅"}
+  };
+
+  // Get theme cycle index from localStorage or start at 0
+  let themeCycleIndex = parseInt(localStorage.getItem("themeCycleIndex") || "0", 10);
+  const themes = ["light", "pastel", "dark"];
+
+  // Elements
+  const greetingEl = document.getElementById("greeting");
+  const dateDisplayEl = document.getElementById("dateDisplay");
+  const taskInput = document.getElementById("taskInput");
+  const prioritySelect = document.getElementById("prioritySelect");
+  const congratsEl = document.getElementById("congratsMessage");
+  const progressBars = {
+    todo: document.getElementById("progressTodo"),
+    inprogress: document.getElementById("progressInprogress"),
+    done: document.getElementById("progressDone"),
+  };
+
+  // Pomodoro
+  const pomodoroDisplay = document.getElementById("pomodoroDisplay");
+  const startBtn = document.getElementById("startBtn");
+  const pauseBtn = document.getElementById("pauseBtn");
+  const resetBtn = document.getElementById("resetBtn");
+
+  let pomodoroSeconds = 25 * 60;
+  let pomodoroInterval = null;
+  let pomodoroRunning = false;
+
+  // Initialize
+  function init() {
+    setGreeting();
+    setDate();
+    applyTheme();
+    loadTasks();
+    updateProgress();
+    updateCongrats();
+    loadPomodoroState();
+  }
+
+  // Set random greeting
+  function setGreeting() {
+    greetingEl.textContent = greetings[Math.floor(Math.random() * greetings.length)];
+  }
+
+  // Set date in format "Monday, 12th July 2025"
+  function setDate() {
+    const now = new Date();
+    const dayName = now.toLocaleDateString(undefined, { weekday: "long" });
+    const dayNum = now.getDate();
+    const monthName = now.toLocaleDateString(undefined, { month: "long" });
+    const year = now.getFullYear();
+    const suffix = getDaySuffix(dayNum);
+    dateDisplayEl.textContent = `${dayName}, ${dayNum}${suffix} ${monthName} ${year}`;
+  }
+  function getDaySuffix(day) {
+    if (day >= 11 && day <= 13) return "th";
+    switch(day % 10) {
+      case 1: return "st";
+      case 2: return "nd";
+      case 3: return "rd";
+      default: return "th";
+    }
+  }
+
+  // Apply theme by cycling and saving to localStorage
+  function applyTheme() {
+    document.body.classList.remove(...themes);
+    const theme = themes[themeCycleIndex];
+    document.body.classList.add(theme);
+    localStorage.setItem("themeCycleIndex", ((themeCycleIndex + 1) % themes.length).toString());
+  }
+
+  // Create a task element
+  function createTaskElement(task) {
+    const li = document.createElement("li");
+    li.classList.add("task");
+    li.classList.add(priorityMap[task.priority]?.class || "medium");
+    li.setAttribute("draggable", "true");
+    li.dataset.id = task.id;
+    li.dataset.priority = task.priority;
+    li.dataset.column = task.column;
+
+    li.innerHTML = `
+      <span class="label">${priorityMap[task.priority].icon} ${escapeHTML(task.text)}</span>
+      <button class="delete-btn" title="Delete task">&times;</button>
+    `;
+
+    li.querySelector(".delete-btn").addEventListener("click", e => {
+      e.stopPropagation();
+      deleteTask(task.id);
+    });
+
+    li.addEventListener("dragstart", e => {
+      dragged = li;
+      e.dataTransfer.effectAllowed = "move";
+    });
+
+    li.addEventListener("click", () => editTask(task.id));
+
+    return li;
+  }
+
+  // Escape HTML for task text
+  function escapeHTML(text) {
+    const div = document.createElement("div");
+    div.textContent = text;
+    return div.innerHTML;
+  }
+
+  // Generate unique ID for tasks
+  function generateId() {
+    return "task_" + Math.random().toString(36).slice(2);
+  }
+
+  // State: tasks array
+  let tasks = [];
+
+  // Save tasks to localStorage
+  function saveTasks() {
+    localStorage.setItem("kanbanTasks", JSON.stringify(tasks));
+  }
+
+  // Load tasks from localStorage
+  function loadTasks() {
+    tasks = JSON.parse(localStorage.getItem("kanbanTasks") || "[]");
+    renderTasks();
+  }
+
+  // Render all tasks to DOM
+  function renderTasks() {
+    ["todo", "inprogress", "done"].forEach(col => {
+      const ul = document.getElementById(col);
+      ul.innerHTML = "";
+      tasks.filter(t => t.column === col).forEach(task => {
+        ul.appendChild(createTaskElement(task));
+      });
+    });
+    updateProgress();
+    updateCongrats();
+  }
+
+  // Add new task from input
+  function addTask() {
+    const text = taskInput.value.trim();
+    if (!text) return;
+    const priority = prioritySelect.value;
+    const newTask = {
+      id: generateId(),
+      text,
+      priority,
+      column: "todo"
+    };
+    tasks.push(newTask);
+    saveTasks();
+    renderTasks();
+    taskInput.value = "";
+  }
+
+  // Delete task by id
+  function deleteTask(id) {
+    tasks = tasks.filter(t => t.id !== id);
+    saveTasks();
+    renderTasks();
+  }
+
+  // Edit task text by id
+  function editTask(id) {
+    const task = tasks.find(t => t.id === id);
+    if (!task) return;
+    const newText = prompt("Edit task:", task.text);
+    if (newText !== null && newText.trim() !== "") {
+      task.text = newText.trim();
+      saveTasks();
+      renderTasks();
+    }
+  }
+
+  // Drag & Drop handlers
+  let dragged = null;
+
+  function allowDrop(e) {
+    e.preventDefault();
+  }
+
+  function drop(e, column) {
+    e.preventDefault();
+    if (!dragged) return;
+    const id = dragged.dataset.id;
+    const task = tasks.find(t => t.id === id);
+    if (!task) return;
+    task.column = column;
+    saveTasks();
+    renderTasks();
+    dragged = null;
+  }
+
+  // Update progress bars based on task count per column
+  function updateProgress() {
+    const total = tasks.length || 1; // avoid div zero
+    ["todo", "inprogress", "done"].forEach(col => {
+      const count = tasks.filter(t => t.column === col).length;
+      const pct = Math.round((count / total) * 100);
+      progressBars[col].style.width = pct + "%";
+    });
+  }
+
+  // Congratulatory message on all done
+  function updateCongrats() {
+    if (tasks.length === 0) {
+      congratsEl.textContent = "";
+      return;
+    }
+    const doneCount = tasks.filter(t => t.column === "done").length;
+    if (doneCount === tasks.length) {
+      const messages = [
+        "🎉 Well done! You did great!",
+        "👏 That's impressive!",
+        "🚀 All tasks completed! Amazing!",
+        "💯 You're crushing it!"
+      ];
+      congratsEl.textContent = messages[Math.floor(Math.random() * messages.length)];
+    } else {
+      congratsEl.textContent = "";
+    }
+  }
+
+  // Clear all tasks with confirmation
+  function clearAll() {
+    if (!confirm("Clear all tasks?")) return;
+    tasks = [];
+    saveTasks();
+    renderTasks();
+  }
+
+  // Export tasks as JSON file
+  function exportTasks() {
+    const dataStr = JSON.stringify(tasks, null, 2);
+    const blob = new Blob([dataStr], {type: "application/json"});
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = "tasks.json";
+    a.click();
+    URL.revokeObjectURL(url);
+  }
+
+  // Import tasks from JSON file
+  function importTasks() {
+    const fileInput = document.getElementById("importFile");
+    if (!fileInput.files.length) return;
+    const file = fileInput.files[0];
+    const reader = new FileReader();
+    reader.onload = e => {
+      try {
+        const imported = JSON.parse(e.target.result);
+        if (!Array.isArray(imported)) throw new Error("Invalid file format");
+        tasks = imported;
+        saveTasks();
+        renderTasks();
+        fileInput.value = "";
+      } catch (err) {
+        alert("Failed to import tasks: Invalid JSON file.");
+      }
+    };
+    reader.readAsText(file);
+  }
+
+  // Pomodoro timer logic
+  function updatePomodoroDisplay() {
+    const min = Math.floor(pomodoroSeconds / 60).toString().padStart(2, "0");
+    const sec = (pomodoroSeconds % 60).toString().padStart(2, "0");
+    pomodoroDisplay.textContent = `${min}:${sec}`;
+  }
+
+  function startPomodoro() {
+    if (pomodoroRunning) return;
+    pomodoroRunning = true;
+    startBtn.disabled = true;
+    pauseBtn.disabled = false;
+    pomodoroInterval = setInterval(() => {
+      if (pomodoroSeconds <= 0) {
+        clearInterval(pomodoroInterval);
+        pomodoroRunning = false;
+        startBtn.disabled = false;
+        pauseBtn.disabled = true;
+        alert("Pomodoro session finished! Time for a break.");
+        pomodoroSeconds = 25 * 60;
+        updatePomodoroDisplay();
+        savePomodoroState();
+        return;
+      }
+      pomodoroSeconds--;
+      updatePomodoroDisplay();
+      savePomodoroState();
+    }, 1000);
+  }
+
+  function pausePomodoro() {
+    if (!pomodoroRunning) return;
+    clearInterval(pomodoroInterval);
+    pomodoroRunning = false;
+    startBtn.disabled = false;
+    pauseBtn.disabled = true;
+    savePomodoroState();
+  }
+
+  function resetPomodoro() {
+    clearInterval(pomodoroInterval);
+    pomodoroSeconds = 25 * 60;
+    pomodoroRunning = false;
+    updatePomodoroDisplay();
+    startBtn.disabled = false;
+    pauseBtn.disabled = true;
+    savePomodoroState();
+  }
+
+  // Save pomodoro state in localStorage
+  function savePomodoroState() {
+    const state = {
+      seconds: pomodoroSeconds,
+      running: pomodoroRunning,
+      timestamp: Date.now()
+    };
+    localStorage.setItem("pomodoroState", JSON.stringify(state));
+  }
+
+  // Load pomodoro state from localStorage
+  function loadPomodoroState() {
+    const saved = localStorage.getItem("pomodoroState");
+    if (!saved) {
+      updatePomodoroDisplay();
+      return;
+    }
+    try {
+      const state = JSON.parse(saved);
+      if (typeof state.seconds === "number") pomodoroSeconds = state.seconds;
+      pomodoroRunning = !!state.running;
+      updatePomodoroDisplay();
+      if (pomodoroRunning) startPomodoro();
+    } catch {
+      updatePomodoroDisplay();
+    }
+  }
+
+  // Event listeners
+  taskInput.addEventListener("keypress", e => {
+    if (e.key === "Enter") addTask();
+  });
+
+  // Initial load
+  init();
+
+  // Theme toggle button
+  function toggleTheme() {
+    const current = document.body.classList[0];
+    const nextIndex = (themes.indexOf(current) + 1) % themes.length;
+    themeCycleIndex = nextIndex;
+    localStorage.setItem("themeCycleIndex", nextIndex.toString());
+    document.body.classList.remove(...themes);
+    document.body.classList.add(themes[nextIndex]);
+  }
+</script>
+</body>
+</html>

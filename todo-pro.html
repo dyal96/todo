@@ -1,0 +1,314 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Pro Task Manager</title>
+<style>
+    :root {
+        --primary-color: #4a90e2;
+        --danger-color: #e74c3c;
+        --bg-color: #f4f7f6;
+        --card-bg: #ffffff;
+        --text-color: #333;
+        --gray-text: #888;
+    }
+
+    * {
+        box-sizing: border-box;
+    }
+
+    body {
+        font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+        background-color: var(--bg-color);
+        margin: 0;
+        padding: 0;
+        display: flex;
+        justify-content: center;
+        min-height: 100vh;
+        padding-top: 50px;
+    }
+
+    .container {
+        background-color: var(--card-bg);
+        width: 100%;
+        max-width: 500px; /* Limits width on large screens */
+        padding: 30px;
+        border-radius: 12px;
+        box-shadow: 0 10px 25px rgba(0,0,0,0.1);
+        height: fit-content;
+    }
+
+    h1 {
+        text-align: center;
+        color: var(--text-color);
+        margin-top: 0;
+        font-size: 24px;
+        margin-bottom: 20px;
+    }
+
+    /* Input Group Styling */
+    .input-group {
+        display: flex;
+        gap: 10px;
+        margin-bottom: 20px;
+    }
+
+    #taskInput {
+        flex-grow: 1;
+        padding: 12px;
+        border: 2px solid #ddd;
+        border-radius: 6px;
+        font-size: 16px;
+        transition: border-color 0.3s;
+    }
+
+    #taskInput:focus {
+        border-color: var(--primary-color);
+        outline: none;
+    }
+
+    #addBtn {
+        padding: 12px 20px;
+        background-color: var(--primary-color);
+        color: white;
+        border: none;
+        border-radius: 6px;
+        cursor: pointer;
+        font-weight: bold;
+        transition: background-color 0.3s;
+    }
+
+    #addBtn:hover {
+        background-color: #357abd;
+    }
+
+    /* List Styling */
+    ul {
+        list-style-type: none;
+        padding: 0;
+        margin: 0;
+    }
+
+    li {
+        background-color: #fff;
+        border-bottom: 1px solid #eee;
+        padding: 15px 10px;
+        display: flex;
+        align-items: center;
+        transition: background-color 0.2s;
+    }
+
+    li:last-child {
+        border-bottom: none;
+    }
+
+    li:hover {
+        background-color: #fafafa;
+    }
+
+    /* Custom Checkbox */
+    input[type="checkbox"] {
+        width: 18px;
+        height: 18px;
+        cursor: pointer;
+        margin-right: 15px;
+    }
+
+    /* Task Text */
+    .task-text {
+        flex: 1;
+        font-size: 16px;
+        word-break: break-word; /* Prevents long words breaking layout */
+        cursor: pointer;
+    }
+
+    .completed {
+        text-decoration: line-through;
+        color: var(--gray-text);
+    }
+
+    /* Delete Button */
+    .delete-btn {
+        background: none;
+        border: none;
+        color: var(--gray-text);
+        cursor: pointer;
+        font-size: 18px;
+        margin-left: 10px;
+        padding: 5px;
+        border-radius: 4px;
+        transition: color 0.2s, background 0.2s;
+    }
+
+    .delete-btn:hover {
+        color: var(--danger-color);
+        background-color: #ffeaea;
+    }
+
+    /* Stats Footer */
+    .stats {
+        margin-top: 20px;
+        padding-top: 15px;
+        border-top: 1px solid #eee;
+        color: var(--gray-text);
+        font-size: 14px;
+        text-align: right;
+    }
+
+    /* Empty State */
+    .empty-state {
+        text-align: center;
+        color: var(--gray-text);
+        margin: 20px 0;
+        font-style: italic;
+    }
+
+    @media (max-width: 600px) {
+        body {
+            padding: 0;
+            background-color: #fff;
+        }
+        .container {
+            box-shadow: none;
+            border-radius: 0;
+            max-width: 100%;
+        }
+    }
+</style>
+</head>
+<body>
+
+<div class="container">
+    <h1>📝 My Tasks</h1>
+
+    <div class="input-group">
+        <input type="text" id="taskInput" placeholder="What needs to be done?" aria-label="New task">
+        <button id="addBtn" onclick="addTask()">Add</button>
+    </div>
+
+    <ul id="taskList">
+        </ul>
+
+    <div class="stats" id="stats">
+        0 tasks remaining
+    </div>
+</div>
+
+<script>
+    // 1. STATE MANAGEMENT
+    // We store tasks in an array and save them to LocalStorage
+    // Each task is an object: { id: 123, text: "Hello", completed: false }
+    let todos = JSON.parse(localStorage.getItem('todos')) || [];
+
+    const taskInput = document.getElementById("taskInput");
+    const taskList = document.getElementById("taskList");
+    const statsDiv = document.getElementById("stats");
+
+    // Initialize the app
+    renderTodos();
+
+    // Listen for "Enter" key
+    taskInput.addEventListener("keypress", function(event) {
+        if (event.key === 'Enter') {
+            addTask();
+        }
+    });
+
+    // 2. ADD TASK
+    function addTask() {
+        const text = taskInput.value.trim();
+        
+        if (text === "") {
+            alert("Please write a task first!");
+            return;
+        }
+
+        const newTask = {
+            id: Date.now(), // Unique ID based on timestamp
+            text: text,
+            completed: false
+        };
+
+        todos.push(newTask);
+        saveAndRender();
+        taskInput.value = "";
+        taskInput.focus();
+    }
+
+    // 3. TOGGLE COMPLETE
+    function toggleTask(id) {
+        // Find the task in the array and flip its status
+        todos = todos.map(todo => {
+            if (todo.id === id) {
+                return { ...todo, completed: !todo.completed };
+            }
+            return todo;
+        });
+        saveAndRender();
+    }
+
+    // 4. DELETE TASK
+    function deleteTask(id) {
+        todos = todos.filter(todo => todo.id !== id);
+        saveAndRender();
+    }
+
+    // 5. SAVE TO LOCAL STORAGE & UPDATE UI
+    function saveAndRender() {
+        localStorage.setItem('todos', JSON.stringify(todos));
+        renderTodos();
+    }
+
+    // 6. RENDER (Draw the list to HTML)
+    function renderTodos() {
+        taskList.innerHTML = ""; // Clear current list
+
+        if (todos.length === 0) {
+            taskList.innerHTML = '<div class="empty-state">No tasks yet. Enjoy your day! ☀️</div>';
+            statsDiv.textContent = '0 tasks remaining';
+            return;
+        }
+
+        let pendingCount = 0;
+
+        todos.forEach(todo => {
+            if (!todo.completed) pendingCount++;
+
+            const li = document.createElement("li");
+            
+            // Checkbox
+            const checkbox = document.createElement("input");
+            checkbox.type = "checkbox";
+            checkbox.checked = todo.completed;
+            checkbox.onclick = () => toggleTask(todo.id);
+
+            // Text Span
+            const span = document.createElement("span");
+            span.textContent = todo.text;
+            span.className = "task-text " + (todo.completed ? "completed" : "");
+            // Allow clicking text to toggle checkbox
+            span.onclick = () => toggleTask(todo.id);
+
+            // Delete Button
+            const deleteBtn = document.createElement("button");
+            deleteBtn.textContent = "×"; // Multiplication sign usually looks better than X
+            deleteBtn.className = "delete-btn";
+            deleteBtn.title = "Delete task";
+            deleteBtn.onclick = (e) => {
+                e.stopPropagation(); // Prevent toggling when clicking delete
+                deleteTask(todo.id);
+            };
+
+            li.appendChild(checkbox);
+            li.appendChild(span);
+            li.appendChild(deleteBtn);
+            taskList.appendChild(li);
+        });
+
+        statsDiv.textContent = `${pendingCount} task${pendingCount !== 1 ? 's' : ''} remaining`;
+    }
+</script>
+
+</body>
+</html>

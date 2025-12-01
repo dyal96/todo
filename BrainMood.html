@@ -1,0 +1,295 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Brainstorming Panel</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.4.0/jspdf.umd.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 0;
+            padding: 0;
+            height: 100vh;
+            display: flex;
+            flex-direction: column;
+            background: linear-gradient(to right, #f3e7e9, #e3eeff);
+            transition: background 0.5s;
+        }
+
+        .title-bar {
+            background-color: #333;
+            color: white;
+            padding: 10px;
+            text-align: center;
+            font-size: 20px;
+        }
+
+        .title-bar[contenteditable="true"]:focus {
+            outline: 2px solid #007bff;
+            background-color: #444;
+        }
+
+        .board-container {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+        }
+
+        .board {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 10px;
+            overflow-x: auto;
+            padding: 10px;
+        }
+
+        .column {
+            background: #ffffff;
+            border: 1px solid #ddd;
+            border-radius: 8px;
+            width: 250px;
+            min-height: 400px;
+            padding: 10px;
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+        }
+
+        .column h2 {
+            margin: 0;
+            font-size: 18px;
+            text-align: center;
+            color: #333;
+            cursor: text;
+        }
+
+        .column h2[contenteditable="true"]:focus {
+            outline: 2px solid #007bff;
+        }
+
+        .note {
+            background: #fffbcc;
+            border: 1px solid #f5e05e;
+            border-radius: 5px;
+            padding: 10px;
+            cursor: grab;
+            user-select: none;
+            position: relative;
+            word-wrap: break-word;
+            overflow-wrap: break-word;
+            white-space: pre-wrap;
+            overflow: hidden;
+        }
+
+        .note:active {
+            cursor: grabbing;
+        }
+
+        .note[contenteditable="true"]:focus {
+            outline: 2px solid #f5e05e;
+            background: #fffbd2;
+        }
+
+        .controls {
+            margin: 10px 0;
+            display: flex;
+            gap: 10px;
+            flex-wrap: wrap;
+            justify-content: center;
+        }
+
+        button {
+            padding: 8px 12px;
+            background-color: #007bff;
+            color: white;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+        }
+
+        button:hover {
+            background-color: #0056b3;
+        }
+
+        .gradient-toggle {
+            background-color: #28a745;
+        }
+
+        .gradient-toggle:hover {
+            background-color: #218838;
+        }
+
+        .delete-area {
+            background: #ff4d4d;
+            color: white;
+            text-align: center;
+            padding: 8px 12px;
+            font-size: 16px;
+            border-radius: 5px;
+            cursor: pointer;
+        }
+
+        .delete-area:hover {
+            background: #d90429;
+        }
+
+        @media (max-width: 768px) {
+            .column {
+                min-width: 200px;
+                padding: 8px;
+            }
+
+            .note {
+                font-size: 14px;
+            }
+
+            .controls button {
+                font-size: 14px;
+                padding: 6px 10px;
+            }
+        }
+
+        @media (max-width: 480px) {
+            .column {
+                min-width: 150px;
+                padding: 6px;
+            }
+
+            .note {
+                font-size: 12px;
+            }
+
+            .controls button {
+                font-size: 12px;
+                padding: 4px 8px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="title-bar" contenteditable="true">Project Title</div>
+    <div class="controls">
+        <button onclick="addColumn()">Add Column</button>
+        <button onclick="addNote()">Add Note</button>
+        <button class="gradient-toggle" onclick="toggleGradient()">Toggle Background</button>
+        <button onclick="exportPDF()">Save as PDF</button>
+        <div class="delete-area" id="delete-area" ondrop="deleteDroppedItem(event)" ondragover="allowDrop(event)">
+            Drag Here to Delete
+        </div>
+    </div>
+    <div class="board-container">
+        <div class="board" id="board">
+            <div class="column" ondrop="drop(event)" ondragover="allowDrop(event)">
+                <h2 contenteditable="true">Ideas</h2>
+                <div class="note" draggable="true" ondragstart="drag(event)" contenteditable="true" id="note-1">
+                    Idea 1
+                </div>
+                <div class="note" draggable="true" ondragstart="drag(event)" contenteditable="true" id="note-2">
+                    Idea 2
+                </div>
+            </div>
+            <div class="column" ondrop="drop(event)" ondragover="allowDrop(event)">
+                <h2 contenteditable="true">In Progress</h2>
+            </div>
+            <div class="column" ondrop="drop(event)" ondragover="allowDrop(event)">
+                <h2 contenteditable="true">Completed</h2>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let gradientIndex = 0;
+        const gradients = [
+            "linear-gradient(to right, #f3e7e9, #e3eeff)",
+            "linear-gradient(to right, #ffecd2, #fcb69f)",
+            "linear-gradient(to right, #a1c4fd, #c2e9fb)",
+            "linear-gradient(to right, #d4fc79, #96e6a1)"
+        ];
+
+        function allowDrop(event) {
+            event.preventDefault();
+        }
+
+        function drag(event) {
+            event.dataTransfer.setData("text", event.target.id);
+        }
+
+        function drop(event) {
+            event.preventDefault();
+            const data = event.dataTransfer.getData("text");
+            const note = document.getElementById(data);
+            if (event.target.classList.contains("column")) {
+                event.target.appendChild(note);
+            }
+        }
+
+        function deleteDroppedItem(event) {
+            event.preventDefault();
+            const data = event.dataTransfer.getData("text");
+            const note = document.getElementById(data);
+            if (note) {
+                note.remove();
+            }
+        }
+
+        function addColumn() {
+            const board = document.getElementById("board");
+            const column = document.createElement("div");
+            column.className = "column";
+            column.setAttribute("ondrop", "drop(event)");
+            column.setAttribute("ondragover", "allowDrop(event)");
+
+            const title = document.createElement("h2");
+            title.textContent = "New Column";
+            title.setAttribute("contenteditable", "true");
+            column.appendChild(title);
+
+            board.appendChild(column);
+        }
+
+        function addNote() {
+            const note = document.createElement("div");
+            note.className = "note";
+            note.setAttribute("draggable", "true");
+            note.setAttribute("ondragstart", "drag(event)");
+            note.setAttribute("contenteditable", "true");
+            note.id = `note-${Date.now()}`;
+            note.textContent = "New Note";
+
+            const columns = document.querySelectorAll(".column");
+            if (columns.length > 0) {
+                columns[0].appendChild(note);
+            } else {
+                alert("Please add a column first!");
+            }
+        }
+
+        function toggleGradient() {
+            gradientIndex = (gradientIndex + 1) % gradients.length;
+            document.body.style.background = gradients[gradientIndex];
+        }
+
+        async function exportPDF() {
+            const { jsPDF } = window.jspdf;
+            const pdf = new jsPDF("p", "mm", "a4");
+            const board = document.querySelector(".board-container");
+
+            await html2canvas(board, {
+                scrollX: 0,
+                scrollY: 0,
+                useCORS: true
+            }).then(canvas => {
+                const imgData = canvas.toDataURL("image/png");
+                const imgWidth = 190;
+                const imgHeight = (canvas.height * imgWidth) / canvas.width;
+                pdf.addImage(imgData, "PNG", 10, 10, imgWidth, imgHeight);
+                pdf.save("Brainstorming-Panel.pdf");
+            });
+        }
+    </script>
+</body>
+</html>

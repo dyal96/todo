@@ -1,0 +1,467 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Pro Brainstorming Board</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.4.0/jspdf.umd.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+
+    <style>
+        :root {
+            --bg-color: #f4f5f7;
+            --primary-color: #0052cc;
+            --primary-hover: #0747a6;
+            --danger-color: #ff5630;
+            --danger-hover: #de350b;
+            --text-color: #172b4d;
+            --column-bg: #ebecf0;
+            --card-bg: #ffffff;
+            --shadow: 0 1px 3px rgba(0,0,0,0.12), 0 1px 2px rgba(0,0,0,0.24);
+        }
+
+        body {
+            font-family: 'Inter', sans-serif;
+            margin: 0;
+            padding: 0;
+            height: 100vh;
+            display: flex;
+            flex-direction: column;
+            background-color: var(--bg-color);
+            color: var(--text-color);
+            overflow: hidden;
+        }
+
+        /* --- Header --- */
+        .title-bar {
+            background-color: #ffffff;
+            padding: 15px 20px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+            z-index: 10;
+        }
+
+        .project-title {
+            font-size: 20px;
+            font-weight: 600;
+            border: 1px solid transparent;
+            padding: 5px 10px;
+            border-radius: 4px;
+            cursor: text;
+        }
+
+        .project-title:focus {
+            border-color: var(--primary-color);
+            outline: none;
+            background-color: #f0f2f5;
+        }
+
+        /* --- Controls --- */
+        .controls {
+            display: flex;
+            gap: 10px;
+            align-items: center;
+        }
+
+        button {
+            padding: 8px 16px;
+            font-size: 14px;
+            font-weight: 500;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            transition: all 0.2s ease;
+            background-color: #ebecf0;
+            color: var(--text-color);
+        }
+
+        button:hover {
+            background-color: #dfe1e6;
+        }
+
+        button.primary {
+            background-color: var(--primary-color);
+            color: white;
+        }
+
+        button.primary:hover {
+            background-color: var(--primary-hover);
+        }
+
+        button.danger {
+            background-color: #ffebe6;
+            color: var(--danger-color);
+        }
+
+        button.danger:hover {
+            background-color: #ffbdad;
+        }
+
+        /* --- Board Area --- */
+        .board-container {
+            flex: 1;
+            overflow-x: auto;
+            overflow-y: hidden;
+            padding: 20px;
+            display: flex;
+            align-items: flex-start;
+        }
+
+        .board {
+            display: flex;
+            align-items: flex-start;
+            gap: 20px;
+            height: 100%;
+        }
+
+        /* --- Columns --- */
+        .column {
+            background-color: var(--column-bg);
+            border-radius: 8px;
+            width: 280px;
+            min-width: 280px;
+            max-height: calc(100vh - 100px);
+            display: flex;
+            flex-direction: column;
+            padding: 10px;
+            transition: background 0.2s;
+        }
+
+        .column h2 {
+            margin: 0 0 10px 0;
+            font-size: 16px;
+            font-weight: 600;
+            padding: 8px;
+            cursor: text;
+            border-radius: 4px;
+        }
+
+        .column h2:focus {
+            background-color: white;
+            outline: 2px solid var(--primary-color);
+        }
+
+        /* --- Notes (Cards) --- */
+        .note {
+            background: var(--card-bg);
+            border-radius: 6px;
+            padding: 12px;
+            margin-bottom: 10px;
+            box-shadow: 0 1px 2px rgba(0,0,0,0.1);
+            cursor: grab;
+            font-size: 14px;
+            line-height: 1.5;
+            position: relative;
+            border-left: 4px solid var(--primary-color);
+            transition: transform 0.1s, box-shadow 0.1s;
+        }
+
+        .note:hover {
+            box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+            background-color: #fafbfc;
+        }
+
+        .note:active {
+            cursor: grabbing;
+            transform: rotate(2deg);
+        }
+
+        .note:focus {
+            outline: 2px solid var(--primary-color);
+            background-color: white;
+        }
+
+        /* --- Drag & Drop Visuals --- */
+        .column.drag-over {
+            background-color: #dfe1e6;
+        }
+
+        /* --- Trash Zone --- */
+        .delete-zone {
+            position: fixed;
+            bottom: 30px;
+            left: 50%;
+            transform: translateX(-50%);
+            background-color: var(--danger-color);
+            color: white;
+            padding: 15px 40px;
+            border-radius: 50px;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.2);
+            font-weight: 600;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            opacity: 0;
+            pointer-events: none;
+            transition: all 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+            z-index: 100;
+        }
+
+        .delete-zone.active {
+            opacity: 1;
+            pointer-events: all;
+            bottom: 40px;
+        }
+
+        .delete-zone.drag-over {
+            transform: translateX(-50%) scale(1.1);
+            background-color: var(--danger-hover);
+        }
+
+        /* --- Scrollbar Styling --- */
+        ::-webkit-scrollbar {
+            width: 8px;
+            height: 8px;
+        }
+        ::-webkit-scrollbar-track {
+            background: rgba(0,0,0,0.05);
+        }
+        ::-webkit-scrollbar-thumb {
+            background: #bfc2ce;
+            border-radius: 4px;
+        }
+        ::-webkit-scrollbar-thumb:hover {
+            background: #a1a5b3;
+        }
+    </style>
+</head>
+<body>
+
+    <div class="title-bar">
+        <div class="project-title" id="projectTitle" contenteditable="true" oninput="saveData()">My Awesome Project</div>
+        <div class="controls">
+            <button onclick="addColumn()"><i class="fas fa-columns"></i> Add Column</button>
+            <button class="primary" onclick="addNote()"><i class="fas fa-plus"></i> Add Card</button>
+            <button onclick="exportPDF()"><i class="fas fa-file-pdf"></i> PDF</button>
+            <button class="danger" onclick="resetBoard()"><i class="fas fa-trash-alt"></i> Reset</button>
+        </div>
+    </div>
+
+    <div class="board-container">
+        <div class="board" id="board">
+            </div>
+    </div>
+
+    <div class="delete-zone" id="delete-zone" ondrop="deleteDroppedItem(event)" ondragover="allowDrop(event)" ondragenter="dragEnterZone(event)" ondragleave="dragLeaveZone(event)">
+        <i class="fas fa-trash"></i> Drop here to delete
+    </div>
+
+    <script>
+        // --- Persistence Logic ---
+        
+        // Load data on startup
+        document.addEventListener('DOMContentLoaded', () => {
+            loadData();
+        });
+
+        function saveData() {
+            const boardHTML = document.getElementById('board').innerHTML;
+            const projectTitle = document.getElementById('projectTitle').innerText;
+            
+            const data = {
+                board: boardHTML,
+                title: projectTitle
+            };
+            
+            localStorage.setItem('kanbanData', JSON.stringify(data));
+        }
+
+        function loadData() {
+            const storedData = localStorage.getItem('kanbanData');
+            
+            if (storedData) {
+                const parsedData = JSON.parse(storedData);
+                document.getElementById('board').innerHTML = parsedData.board;
+                document.getElementById('projectTitle').innerText = parsedData.title || "My Project";
+                
+                // Re-attach input listeners to new DOM elements for auto-save
+                attachInputListeners();
+            } else {
+                // Default State if no save found
+                initializeDefaultBoard();
+            }
+        }
+
+        function initializeDefaultBoard() {
+            const board = document.getElementById('board');
+            board.innerHTML = `
+                <div class="column" ondrop="drop(event)" ondragover="allowDrop(event)">
+                    <h2 contenteditable="true" oninput="saveData()">To Do</h2>
+                    <div class="note" draggable="true" ondragstart="drag(event)" contenteditable="true" id="note-${Date.now()}" oninput="saveData()">
+                        Welcome to your new board!
+                    </div>
+                </div>
+                <div class="column" ondrop="drop(event)" ondragover="allowDrop(event)">
+                    <h2 contenteditable="true" oninput="saveData()">In Progress</h2>
+                </div>
+                <div class="column" ondrop="drop(event)" ondragover="allowDrop(event)">
+                    <h2 contenteditable="true" oninput="saveData()">Done</h2>
+                </div>
+            `;
+            saveData();
+        }
+
+        function resetBoard() {
+            if(confirm("Are you sure you want to reset the board? All data will be lost.")) {
+                localStorage.removeItem('kanbanData');
+                initializeDefaultBoard();
+            }
+        }
+
+        // Helper to attach listeners to dynamic content for text editing
+        function attachInputListeners() {
+            // This is a global delegation approach to catch edits
+            document.getElementById('board').addEventListener('input', function() {
+                saveData();
+            });
+        }
+        
+        // --- Drag and Drop Logic ---
+
+        function allowDrop(event) {
+            event.preventDefault();
+        }
+
+        function drag(event) {
+            event.dataTransfer.setData("text", event.target.id);
+            // Show delete zone
+            document.getElementById('delete-zone').classList.add('active');
+        }
+
+        // Handle dropping items into columns
+        function drop(event) {
+            event.preventDefault();
+            const data = event.dataTransfer.getData("text");
+            const note = document.getElementById(data);
+            
+            // Check if drop target is a column or inside a column
+            let target = event.target;
+            
+            // Traverse up to find the column div
+            while (target && !target.classList.contains('column')) {
+                target = target.parentElement;
+            }
+
+            if (target && target.classList.contains("column")) {
+                target.appendChild(note);
+                saveData(); // Save state after move
+            }
+
+            // Hide delete zone
+            document.getElementById('delete-zone').classList.remove('active');
+            document.getElementById('delete-zone').classList.remove('drag-over');
+        }
+
+        // Delete Zone Logic
+        function dragEnterZone(event) {
+            document.getElementById('delete-zone').classList.add('drag-over');
+        }
+        
+        function dragLeaveZone(event) {
+            document.getElementById('delete-zone').classList.remove('drag-over');
+        }
+
+        function deleteDroppedItem(event) {
+            event.preventDefault();
+            const data = event.dataTransfer.getData("text");
+            const note = document.getElementById(data);
+            if (note) {
+                note.remove();
+                saveData(); // Save state after delete
+            }
+            document.getElementById('delete-zone').classList.remove('active');
+            document.getElementById('delete-zone').classList.remove('drag-over');
+        }
+
+        // Global dragend to ensure trash can disappears if dropped outside
+        document.addEventListener("dragend", function(event) {
+             document.getElementById('delete-zone').classList.remove('active');
+        });
+
+        // --- Board Actions ---
+
+        function addColumn() {
+            const board = document.getElementById("board");
+            const column = document.createElement("div");
+            column.className = "column";
+            column.setAttribute("ondrop", "drop(event)");
+            column.setAttribute("ondragover", "allowDrop(event)");
+
+            const title = document.createElement("h2");
+            title.textContent = "New Phase";
+            title.setAttribute("contenteditable", "true");
+            title.setAttribute("oninput", "saveData()"); // Auto save on text change
+            
+            column.appendChild(title);
+            board.appendChild(column);
+            
+            saveData(); // Save state
+        }
+
+        function addNote() {
+            const note = document.createElement("div");
+            note.className = "note";
+            note.setAttribute("draggable", "true");
+            note.setAttribute("ondragstart", "drag(event)");
+            note.setAttribute("contenteditable", "true");
+            note.setAttribute("oninput", "saveData()"); // Auto save on text change
+            note.id = `note-${Date.now()}`;
+            note.textContent = "New Idea...";
+
+            const columns = document.querySelectorAll(".column");
+            if (columns.length > 0) {
+                columns[0].appendChild(note);
+                note.focus(); // Focus on the new note
+                saveData(); // Save state
+            } else {
+                alert("Please add a column first!");
+            }
+        }
+
+        // --- Export Feature ---
+
+        async function exportPDF() {
+            const { jsPDF } = window.jspdf;
+            
+            // Temporarily hide controls/scrollbars for snapshot
+            const originalOverflow = document.body.style.overflow;
+            
+            const boardElement = document.querySelector(".board-container");
+            const title = document.getElementById('projectTitle').innerText;
+
+            await html2canvas(boardElement, {
+                scrollX: 0,
+                scrollY: 0,
+                scale: 2, // Higher resolution
+                useCORS: true,
+                backgroundColor: "#f4f5f7" 
+            }).then(canvas => {
+                const imgData = canvas.toDataURL("image/png");
+                
+                // Initialize PDF (Landscape A4)
+                const pdf = new jsPDF("l", "mm", "a4"); 
+                const pageWidth = 297;
+                const pageHeight = 210;
+
+                // Scale image to fit page with margin
+                const margin = 10;
+                const imgWidth = pageWidth - (margin * 2);
+                const imgHeight = (canvas.height * imgWidth) / canvas.width;
+
+                pdf.setFontSize(18);
+                pdf.text(title, margin, margin + 5);
+                pdf.addImage(imgData, "PNG", margin, margin + 15, imgWidth, imgHeight);
+                
+                pdf.save(`${title.replace(/\s+/g, '_')}_Board.pdf`);
+            });
+        }
+    </script>
+</body>
+</html>

@@ -1,0 +1,468 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Pro Brainstorming Board V2</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.4.0/jspdf.umd.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+
+    <style>
+        :root {
+            /* Light Theme (Default) */
+            --bg-color: #f4f5f7;
+            --text-color: #172b4d;
+            --column-bg: #ebecf0;
+            --card-bg: #ffffff;
+            --header-bg: #ffffff;
+            --border-color: #dfe1e6;
+            --primary-color: #0052cc;
+            --danger-color: #ff5630;
+            --shadow: 0 1px 3px rgba(0,0,0,0.12);
+        }
+
+        [data-theme="dark"] {
+            /* Dark Theme Variables */
+            --bg-color: #1e1f21;
+            --text-color: #e0e0e0;
+            --column-bg: #2c2d30;
+            --card-bg: #3b3c40;
+            --header-bg: #252628;
+            --border-color: #444;
+            --primary-color: #4c9aff;
+            --danger-color: #ff7452;
+            --shadow: 0 1px 3px rgba(0,0,0,0.4);
+        }
+
+        body {
+            font-family: 'Inter', sans-serif;
+            margin: 0;
+            height: 100vh;
+            display: flex;
+            flex-direction: column;
+            background-color: var(--bg-color);
+            color: var(--text-color);
+            transition: background 0.3s, color 0.3s;
+            overflow: hidden;
+        }
+
+        /* --- Header --- */
+        .title-bar {
+            background-color: var(--header-bg);
+            padding: 15px 25px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            border-bottom: 1px solid var(--border-color);
+            z-index: 10;
+        }
+
+        .project-title {
+            font-size: 20px;
+            font-weight: 700;
+            padding: 5px 10px;
+            border-radius: 4px;
+        }
+        
+        .project-title:focus { outline: 2px solid var(--primary-color); }
+
+        /* --- Controls --- */
+        .controls { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+
+        button {
+            padding: 8px 14px;
+            font-size: 13px;
+            font-weight: 500;
+            border: 1px solid var(--border-color);
+            border-radius: 6px;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            background-color: var(--header-bg);
+            color: var(--text-color);
+            transition: all 0.2s;
+        }
+
+        button:hover { filter: brightness(0.95); }
+        button.primary { background-color: var(--primary-color); color: white; border: none; }
+        button.danger { color: var(--danger-color); border-color: var(--danger-color); }
+        button.danger:hover { background-color: var(--danger-color); color: white; }
+
+        /* --- Board Area (Centered) --- */
+        .board-container {
+            flex: 1;
+            overflow-x: auto;
+            padding: 40px;
+            display: flex;
+            /* CENTERING MAGIC */
+            justify-content: center; 
+            align-items: flex-start;
+        }
+
+        .board {
+            display: flex;
+            align-items: flex-start;
+            gap: 24px;
+            height: 100%;
+        }
+
+        /* --- Columns --- */
+        .column {
+            background-color: var(--column-bg);
+            border-radius: 10px;
+            width: 300px;
+            min-width: 300px;
+            max-height: calc(100vh - 120px);
+            display: flex;
+            flex-direction: column;
+            padding: 12px;
+            box-shadow: var(--shadow);
+            position: relative;
+        }
+
+        .column-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 4px 4px 12px 4px;
+            cursor: grab;
+        }
+
+        .column h2 {
+            margin: 0;
+            font-size: 16px;
+            font-weight: 600;
+            width: 80%;
+        }
+
+        .delete-col-btn {
+            opacity: 0;
+            font-size: 12px;
+            color: #888;
+            cursor: pointer;
+            padding: 4px;
+        }
+        .column:hover .delete-col-btn { opacity: 1; }
+        .delete-col-btn:hover { color: var(--danger-color); }
+
+        /* --- Notes (Cards) --- */
+        .note {
+            background: var(--card-bg);
+            color: var(--text-color);
+            border-radius: 8px;
+            padding: 14px;
+            margin-bottom: 12px;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+            cursor: grab;
+            font-size: 14px;
+            line-height: 1.5;
+            position: relative;
+            border-left: 4px solid transparent; /* Default border */
+            transition: transform 0.1s;
+        }
+
+        /* Card Colors */
+        .note[data-color="blue"] { border-left-color: #0052cc; background: #e6effc; color: #172b4d; }
+        .note[data-color="green"] { border-left-color: #00875a; background: #e3fcef; color: #172b4d; }
+        .note[data-color="red"] { border-left-color: #de350b; background: #ffebe6; color: #172b4d; }
+        .note[data-color="purple"] { border-left-color: #5243aa; background: #eae6ff; color: #172b4d; }
+        .note[data-color="yellow"] { border-left-color: #ff991f; background: #fff0b3; color: #172b4d; }
+        
+        /* Dark Mode adjustments for colored cards */
+        [data-theme="dark"] .note[data-color="blue"] { background: #091e42; color: #e6effc; }
+        [data-theme="dark"] .note[data-color="green"] { background: #06381e; color: #e3fcef; }
+        [data-theme="dark"] .note[data-color="red"] { background: #420d0d; color: #ffebe6; }
+        [data-theme="dark"] .note[data-color="purple"] { background: #261c59; color: #eae6ff; }
+        [data-theme="dark"] .note[data-color="yellow"] { background: #3f3102; color: #fff0b3; }
+
+        .note:active { transform: rotate(2deg) scale(1.02); cursor: grabbing; }
+        .note:focus { outline: 2px solid var(--primary-color); }
+        .note-hint {
+            font-size: 10px;
+            color: #888;
+            position: absolute;
+            bottom: 2px;
+            right: 5px;
+            opacity: 0;
+            pointer-events: none;
+        }
+        .note:hover .note-hint { opacity: 0.6; }
+
+        /* --- Trash Zone --- */
+        .delete-zone {
+            position: fixed;
+            bottom: 30px;
+            left: 50%;
+            transform: translateX(-50%) translateY(100px);
+            background-color: var(--danger-color);
+            color: white;
+            padding: 15px 40px;
+            border-radius: 50px;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.3);
+            font-weight: 600;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            transition: transform 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+            z-index: 100;
+        }
+        .delete-zone.active { transform: translateX(-50%) translateY(0); }
+        .delete-zone.drag-over { transform: translateX(-50%) scale(1.1); background-color: #bf2600; }
+
+        /* Hidden File Input */
+        #fileInput { display: none; }
+    </style>
+</head>
+<body>
+
+    <div class="title-bar">
+        <div class="project-title" id="projectTitle" contenteditable="true" oninput="saveData()">Centralized Board</div>
+        <div class="controls">
+            <button onclick="toggleTheme()" id="themeBtn"><i class="fas fa-moon"></i></button>
+            <button onclick="addColumn()"><i class="fas fa-columns"></i> Col</button>
+            <button class="primary" onclick="addNote()"><i class="fas fa-plus"></i> Card</button>
+            <button onclick="exportJSON()"><i class="fas fa-download"></i> Save</button>
+            <button onclick="document.getElementById('fileInput').click()"><i class="fas fa-upload"></i> Load</button>
+            <button class="danger" onclick="resetBoard()"><i class="fas fa-trash-alt"></i></button>
+            <input type="file" id="fileInput" accept=".json" onchange="importJSON(this)">
+        </div>
+    </div>
+
+    <div class="board-container">
+        <div class="board" id="board">
+            </div>
+    </div>
+
+    <div class="delete-zone" id="delete-zone" ondrop="deleteDroppedItem(event)" ondragover="allowDrop(event)" ondragenter="dragEnterZone(event)" ondragleave="dragLeaveZone(event)">
+        <i class="fas fa-trash"></i> Drop to Delete
+    </div>
+
+    <script>
+        // --- Persistence & State ---
+        document.addEventListener('DOMContentLoaded', () => {
+            loadData();
+            loadTheme();
+        });
+
+        function saveData() {
+            const boardHTML = document.getElementById('board').innerHTML;
+            const projectTitle = document.getElementById('projectTitle').innerText;
+            const data = { board: boardHTML, title: projectTitle };
+            localStorage.setItem('kanbanDataV2', JSON.stringify(data));
+        }
+
+        function loadData() {
+            const storedData = localStorage.getItem('kanbanDataV2');
+            if (storedData) {
+                const parsedData = JSON.parse(storedData);
+                document.getElementById('board').innerHTML = parsedData.board;
+                document.getElementById('projectTitle').innerText = parsedData.title || "My Project";
+            } else {
+                initializeDefaultBoard();
+            }
+            attachListeners();
+        }
+
+        function initializeDefaultBoard() {
+            const board = document.getElementById('board');
+            board.innerHTML = ''; // Clear
+            createColumn('To Do');
+            createColumn('In Progress');
+            createColumn('Done');
+            
+            // Add a sample note
+            setTimeout(() => {
+                const col1 = document.querySelectorAll('.column')[0];
+                const note = createNoteElement("Double-click me to change color!");
+                col1.appendChild(note);
+                saveData();
+            }, 100);
+        }
+
+        // --- Theme Logic ---
+        function toggleTheme() {
+            const current = document.documentElement.getAttribute('data-theme');
+            const target = current === 'dark' ? 'light' : 'dark';
+            document.documentElement.setAttribute('data-theme', target);
+            localStorage.setItem('theme', target);
+            
+            const btn = document.getElementById('themeBtn');
+            btn.innerHTML = target === 'dark' ? '<i class="fas fa-sun"></i>' : '<i class="fas fa-moon"></i>';
+        }
+
+        function loadTheme() {
+            const savedTheme = localStorage.getItem('theme') || 'light';
+            document.documentElement.setAttribute('data-theme', savedTheme);
+            const btn = document.getElementById('themeBtn');
+            btn.innerHTML = savedTheme === 'dark' ? '<i class="fas fa-sun"></i>' : '<i class="fas fa-moon"></i>';
+        }
+
+        // --- Core Functions ---
+
+        function createColumn(name = "New Column") {
+            const board = document.getElementById("board");
+            const col = document.createElement("div");
+            col.className = "column";
+            col.setAttribute("ondrop", "drop(event)");
+            col.setAttribute("ondragover", "allowDrop(event)");
+            
+            col.innerHTML = `
+                <div class="column-header">
+                    <h2 contenteditable="true" oninput="saveData()">${name}</h2>
+                    <i class="fas fa-times delete-col-btn" onclick="deleteColumn(this)"></i>
+                </div>
+            `;
+            board.appendChild(col);
+            saveData();
+        }
+
+        function addColumn() { createColumn(); }
+
+        function deleteColumn(icon) {
+            if(confirm('Delete this entire column?')) {
+                icon.closest('.column').remove();
+                saveData();
+            }
+        }
+
+        function createNoteElement(text = "New Note") {
+            const note = document.createElement("div");
+            note.className = "note";
+            note.setAttribute("draggable", "true");
+            note.setAttribute("ondragstart", "drag(event)");
+            note.setAttribute("contenteditable", "true");
+            note.setAttribute("oninput", "saveData()");
+            note.setAttribute("ondblclick", "cycleCardColor(this)");
+            note.id = `note-${Date.now()}`;
+            note.textContent = text;
+            
+            // Add hint span
+            const hint = document.createElement("span");
+            hint.className = "note-hint";
+            hint.textContent = "Dbl-click for color";
+            hint.contentEditable = "false";
+            note.appendChild(hint);
+
+            return note;
+        }
+
+        function addNote() {
+            const note = createNoteElement();
+            const columns = document.querySelectorAll(".column");
+            if (columns.length > 0) {
+                columns[0].appendChild(note);
+                note.focus();
+                saveData();
+            } else {
+                alert("Add a column first!");
+            }
+        }
+
+        // --- Color Coding Logic ---
+        const colors = [null, 'blue', 'green', 'red', 'purple', 'yellow'];
+        
+        function cycleCardColor(note) {
+            let currentColor = note.getAttribute('data-color');
+            let index = colors.indexOf(currentColor);
+            let nextIndex = (index + 1) % colors.length;
+            
+            if (colors[nextIndex]) {
+                note.setAttribute('data-color', colors[nextIndex]);
+            } else {
+                note.removeAttribute('data-color');
+            }
+            saveData();
+        }
+
+        // --- Drag & Drop ---
+        function allowDrop(ev) { ev.preventDefault(); }
+        function drag(ev) {
+            ev.dataTransfer.setData("text", ev.target.id);
+            document.getElementById('delete-zone').classList.add('active');
+        }
+        function drop(ev) {
+            ev.preventDefault();
+            const data = ev.dataTransfer.getData("text");
+            const note = document.getElementById(data);
+            
+            let target = ev.target;
+            while (target && !target.classList.contains('column')) {
+                target = target.parentElement;
+            }
+            if (target) {
+                target.appendChild(note);
+                saveData();
+            }
+            resetDragState();
+        }
+
+        // Delete Zone
+        function dragEnterZone() { document.getElementById('delete-zone').classList.add('drag-over'); }
+        function dragLeaveZone() { document.getElementById('delete-zone').classList.remove('drag-over'); }
+        function deleteDroppedItem(ev) {
+            ev.preventDefault();
+            const data = ev.dataTransfer.getData("text");
+            const item = document.getElementById(data);
+            if (item) item.remove();
+            saveData();
+            resetDragState();
+        }
+        
+        function resetDragState() {
+            const zone = document.getElementById('delete-zone');
+            zone.classList.remove('active');
+            zone.classList.remove('drag-over');
+        }
+        document.addEventListener("dragend", resetDragState);
+
+        // --- JSON Import/Export ---
+        function exportJSON() {
+            const data = localStorage.getItem('kanbanDataV2');
+            const title = document.getElementById('projectTitle').innerText;
+            const blob = new Blob([data], {type: "application/json"});
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `${title}_backup.json`;
+            a.click();
+        }
+
+        function importJSON(input) {
+            const file = input.files[0];
+            if (!file) return;
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                try {
+                    const data = JSON.parse(e.target.result);
+                    if(data.board) {
+                        localStorage.setItem('kanbanDataV2', JSON.stringify(data));
+                        loadData(); // refresh UI
+                        alert("Board loaded successfully!");
+                    }
+                } catch(err) {
+                    alert("Invalid file format.");
+                }
+            };
+            reader.readAsText(file);
+        }
+
+        function resetBoard() {
+            if(confirm("Clear everything?")) {
+                localStorage.removeItem('kanbanDataV2');
+                location.reload();
+            }
+        }
+
+        // Helper to re-attach listeners after loading HTML string
+        function attachListeners() {
+            // Re-attach double click listeners that might be lost in string serialization
+            document.querySelectorAll('.note').forEach(note => {
+                note.ondblclick = function() { cycleCardColor(this); };
+            });
+        }
+    </script>
+</body>
+</html>
